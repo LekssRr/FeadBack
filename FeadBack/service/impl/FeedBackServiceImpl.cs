@@ -10,15 +10,19 @@ public class FeedBackServiceImpl : FeedBackService
     private readonly IVinCheckService _vinCheckService;
     private readonly ILogger<FeedBackServiceImpl> _logger;
     private readonly IClientCheckService _clientCheckService;
+    private readonly IKafkaProducerService _kafkaProducerService;
 
     public FeedBackServiceImpl(AppDbContext context,
-        IVinCheckService vinCheckService, IClientCheckService clientCheckService,
-        ILogger<FeedBackServiceImpl> logger)
+        IVinCheckService vinCheckService, 
+        IClientCheckService clientCheckService,
+        ILogger<FeedBackServiceImpl> logger,
+        IKafkaProducerService kafkaProducerService) // Добавляем в конструктор
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
         _vinCheckService = vinCheckService ?? throw new ArgumentNullException(nameof(vinCheckService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _clientCheckService = clientCheckService ?? throw new ArgumentNullException(nameof(clientCheckService));
+        _kafkaProducerService = kafkaProducerService ?? throw new ArgumentNullException(nameof(kafkaProducerService));
     }
 
     public FeedBackAutoDtoResponse createFeadBackAuto(FeedBackAutoDtoRequest feedBackAutoDtoRequest)
@@ -41,7 +45,7 @@ public class FeedBackServiceImpl : FeedBackService
 
         if (!clientExists)
             throw new ArgumentException("Клиент не найден");
-
+        
         // Создание записи
         var feadBack = new FeadBack.Models.FeadBack()
         {
@@ -55,7 +59,8 @@ public class FeedBackServiceImpl : FeedBackService
         // Синхронное сохранение
         _context.FeadBacks.Add(feadBack);
         _context.SaveChanges();
-
+        // Отправка фидбэка в Kafka
+        SendFeedbackToKafka(feedBackAutoDtoRequest, feadBack.Id);
         // Формирование ответа
         return new FeedBackAutoDtoResponse
         {
@@ -64,5 +69,32 @@ public class FeedBackServiceImpl : FeedBackService
             dataTime = DateTime.UtcNow,
             ServiceCompanies = autoInfo.ServiceCompanies ?? new List<ServiceCompanyDto>()
         };
+    }
+    private void SendFeedbackToKafka(FeedBackAutoDtoRequest request, int feedbackId)
+    {
+        try
+        {
+            // Создаем DTO для отправки в Kafka
+            var kafkaMessage = new KafkaFeedResponseDto
+            {
+                Scope = request.feed, // Используем оценку как scope
+                DealerName = request.dealerName, // Бренд + модель как дилер
+                FirstName = request.firstNameEmploee, // Имя сотрудника
+                LastName = request.lastNameEmploee    // Фамилия сотрудника
+            };
+
+            // Отправляем в Kafka
+            _kafkaProducerService.SendFeedResponseAsync(kafkaMessage, "feedback-topic")
+                .GetAwaiter()
+                .GetResult(); // Синхронная отправка
+
+            _logger.LogInformation("✅ Feedback sent to Kafka: {FeedbackId}, Score: {Score}", 
+                feedbackId, request.feed);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Error sending feedback to Kafka: {FeedbackId}", feedbackId);
+            // Не бросаем исключение, чтобы не ломать основной flow
+        }
     }
 }

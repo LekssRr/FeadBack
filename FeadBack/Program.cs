@@ -27,6 +27,16 @@ builder.Services.AddHttpClient<IClientCheckService, ClientCheckService>(client =
     client.DefaultRequestHeaders.Accept.Add(
         new MediaTypeWithQualityHeaderValue("application/json"));
 });
+
+// Или с конфигурацией из appsettings.json
+builder.Services.AddSingleton<IKafkaProducerService>(provider =>
+{
+    var configuration = provider.GetRequiredService<IConfiguration>();
+    var bootstrapServers = configuration["Kafka:BootstrapServers"] ?? "localhost:9092";
+    var defaultTopic = configuration["Kafka:DefaultTopic"] ?? "feed-responses";
+    
+    return new KafkaProducerService(bootstrapServers, defaultTopic);
+});
 // Чтение конфигурации из appsettings.json
 builder.Services.Configure<KafkaProducerConfig>(
     builder.Configuration.GetSection("Kafka:Producer"));

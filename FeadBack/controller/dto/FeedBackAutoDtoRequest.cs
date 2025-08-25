@@ -16,8 +16,18 @@ public class FeedBackAutoDtoRequest
     
     [JsonPropertyName("description")]
     public string description { get; set; }
+    
+    [JsonPropertyName("firstNameEmploee")]
+    public string firstNameEmploee { get; set; }
+    
+    [JsonPropertyName("lastNameEmploee")]
+    public string lastNameEmploee { get; set; }
+    [JsonPropertyName("dealerName")]
+    public string dealerName { get; set; }
     [JsonPropertyName("feed")]
     public int feed { get; set; }
+    
+    
 
     public FeedBackAutoDtoRequest() {}
 }
