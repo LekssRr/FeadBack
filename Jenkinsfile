@@ -1,21 +1,30 @@
 pipeline {
-    agent {
-        docker {
-            image 'mcr.microsoft.com/dotnet/sdk:8.0'
-            args '-v /var/jenkins_home/workspace/feed:/app -w /app'
-            reuseNode true
-        }
-    }
-
-    environment {
-        DOTNET_ROOT = '/usr/share/dotnet'
-        PATH = "${DOTNET_ROOT}:${DOTNET_ROOT}/tools:${PATH}"
-    }
+    agent any
 
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
+            }
+        }
+
+        stage('Setup .NET') {
+            steps {
+                script {
+                    // Устанавливаем .NET SDK если не установлен
+                    sh '''
+                    if ! command -v dotnet &> /dev/null; then
+                        echo "Installing .NET SDK..."
+                        apt-get update
+                        apt-get install -y wget
+                        wget https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
+                        dpkg -i packages-microsoft-prod.deb
+                        apt-get update
+                        apt-get install -y dotnet-sdk-8.0
+                    fi
+                    dotnet --version
+                    '''
+                }
             }
         }
 
@@ -52,7 +61,7 @@ pipeline {
 
     post {
         always {
-            echo "Build completed - cleaning up"
+            echo "Build completed"
         }
         success {
             echo 'C# Build completed successfully! ✅'
