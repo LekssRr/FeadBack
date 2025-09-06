@@ -1,16 +1,25 @@
 pipeline {
-    agent {
-        docker {
-            image 'mcr.microsoft.com/dotnet/sdk:8.0'
-            args '-v /var/jenkins_home/workspace/feed:/app -w /app'
-            reuseNode true
-        }
-    }
+    agent any
 
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
+            }
+        }
+
+        stage('Check .NET') {
+            steps {
+                script {
+                    // Проверяем установлен ли .NET
+                    def dotnetInstalled = sh(script: 'command -v dotnet', returnStatus: true) == 0
+                    
+                    if (!dotnetInstalled) {
+                        error ".NET SDK не установлен на агенте. Установите .NET 8.0 SDK на сервер Jenkins"
+                    }
+                    
+                    sh 'dotnet --version'
+                }
             }
         }
 
