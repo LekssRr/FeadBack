@@ -1,5 +1,11 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'mcr.microsoft.com/dotnet/sdk:8.0'
+            args '-v /var/jenkins_home/workspace/feed:/app -w /app'
+            reuseNode true
+        }
+    }
 
     environment {
         DOTNET_ROOT = '/usr/share/dotnet'
@@ -10,27 +16,6 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
-            }
-        }
-
-        stage('Setup .NET') {
-            steps {
-                script {
-                    // Проверяем установлен ли .NET
-                    sh 'dotnet --version || echo ".NET not installed, installing..."'
-                    
-                    // Установка .NET если нужно (для Linux агентов)
-                    sh '''
-                    if ! command -v dotnet &> /dev/null; then
-                        echo "Installing .NET SDK..."
-                        wget https://dot.net/v1/dotnet-install.sh -O dotnet-install.sh
-                        chmod +x dotnet-install.sh
-                        ./dotnet-install.sh --channel LTS
-                        export DOTNET_ROOT=$HOME/.dotnet
-                        export PATH=$DOTNET_ROOT:$DOTNET_ROOT/tools:$PATH
-                    fi
-                    '''
-                }
             }
         }
 
@@ -61,9 +46,6 @@ pipeline {
         stage('Archive Artifacts') {
             steps {
                 archiveArtifacts 'publish/**/*'
-                // Или для конкретных файлов:
-                archiveArtifacts '**/bin/Release/**/*.dll'
-                archiveArtifacts '**/bin/Release/**/*.exe'
             }
         }
     }
@@ -71,8 +53,6 @@ pipeline {
     post {
         always {
             echo "Build completed - cleaning up"
-            // Очистка временных файлов
-            sh 'dotnet clean || true'
         }
         success {
             echo 'C# Build completed successfully! ✅'
