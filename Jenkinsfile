@@ -11,13 +11,6 @@ pipeline {
         stage('Check .NET') {
             steps {
                 script {
-                    // Проверяем установлен ли .NET
-                    def dotnetInstalled = sh(script: 'command -v dotnet', returnStatus: true) == 0
-                    
-                    if (!dotnetInstalled) {
-                        error ".NET SDK не установлен на агенте. Установите .NET 8.0 SDK на сервер Jenkins"
-                    }
-                    
                     sh 'dotnet --version'
                 }
             }
@@ -25,7 +18,18 @@ pipeline {
 
         stage('Restore NuGet Packages') {
             steps {
-                sh 'dotnet restore'
+                // Выберите один из вариантов:
+                
+                // Вариант 1: Если есть solution файл
+                sh 'dotnet restore FeedBack.sln'
+                
+                // Вариант 2: Если есть конкретный проект
+                sh 'dotnet restore src/FeedBack.API/FeedBack.API.csproj'
+                
+                // Вариант 3: Перейти в директорию проекта
+                dir('src/FeedBack.API') {
+                    sh 'dotnet restore'
+                }
             }
         }
 
